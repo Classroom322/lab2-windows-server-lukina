@@ -1,0 +1,112 @@
+name: Check Lab 2 - Windows Server
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'evidence/**'
+      - 'screenshots/**'
+      - 'report.md'
+      - 'configs/**'
+
+jobs:
+  check-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Проверка evidence.txt ---
+      - name: Check evidence.txt exists
+        id: evidence_exists
+        run: |
+          if [ ! -f evidence/evidence.txt ]; then
+            echo "::error::❌ Файл evidence/evidence.txt не найден!"
+            exit 1
+          fi
+          echo "✅ evidence.txt найден"
+
+      - name: Check Windows Server version
+        run: |
+          if ! grep -qi "Windows Server" evidence/evidence.txt; then
+            echo "::error::❌ В evidence.txt нет упоминания Windows Server"
+            exit 1
+          fi
+          echo "✅ Windows Server обнаружен"
+
+      - name: Check IIS installed
+        run: |
+          if ! grep -qi "IIS (W3SVC): Running" evidence/evidence.txt; then
+            echo "::error::❌ IIS не запущен (нет 'IIS (W3SVC): Running')"
+            exit 1
+          fi
+          echo "✅ IIS работает"
+
+      - name: Check DNS role
+        run: |
+          if ! grep -qi "DNS Installed: True" evidence/evidence.txt; then
+            echo "::error::❌ Роль DNS не установлена"
+            exit 1
+          fi
+          echo "✅ DNS установлен"
+
+      - name: Check index.html content
+        run: |
+          if ! grep -qi "Студент" evidence/evidence.txt; then
+            echo "::error::❌ В index.html нет строки 'Студент'"
+            exit 1
+          fi
+          if ! grep -qi "Группа" evidence/evidence.txt; then
+            echo "::error::❌ В index.html нет строки 'Группа'"
+            exit 1
+          fi
+          echo "✅ index.html содержит ФИО и группу"
+
+      - name: Check HTTP test
+        run: |
+          if ! grep -qi "HTTP Status: 200" evidence/evidence.txt; then
+            echo "::error::❌ HTTP-тест к localhost не прошел (нет 'HTTP Status: 200')"
+            exit 1
+          fi
+          echo "✅ HTTP-тест пройден"
+
+      # --- Проверка скриншотов ---
+      - name: Check screenshots
+        run: |
+          REQUIRED=(
+            "01-vbox-settings.png"
+            "02-win-version.png"
+            "03-ipconfig.png"
+            "04-iis-status.png"
+            "05-browser-localhost.png"
+            "06-browser-host.png"
+            "07-dns-manager.png"
+            "08-ping-host.png"
+          )
+          MISSING=0
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -f "screenshots/$f" ]; then
+              echo "::error::❌ Отсутствует скриншот: screenshots/$f"
+              MISSING=1
+            fi
+          done
+          if [ $MISSING -eq 1 ]; then exit 1; fi
+          echo "✅ Все 8 скриншотов на месте"
+
+      # --- Проверка report.md ---
+      - name: Check report.md
+        run: |
+          if [ ! -f report.md ]; then
+            echo "::error::❌ report.md не найден"
+            exit 1
+          fi
+          if [ $(wc -l < report.md) -lt 20 ]; then
+            echo "::error::❌ report.md слишком короткий (меньше 20 строк)"
+            exit 1
+          fi
+          echo "✅ report.md заполнен"
+
+      # --- Итог ---
+      - name: All checks passed
+        run: |
+          echo "🎉 Все проверки пройдены! Работа готова к оценке."
